@@ -1,10 +1,12 @@
 "isolated forest functions"
 
 import numpy as np
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import confusion_matrix
 import random as rn
 import os
 import warnings
-from version import __version__
 
 def c_factor(n) :
     return 2.0*(np.log(n-1)+0.5772156649) - (2.0*(n-1.)/(n*1.0))
@@ -22,7 +24,7 @@ class iForest(object):
         self.c = c_factor(self.sample)        
         for i in range(self.ntrees):
             ix = rn.sample(range(self.data_size), self.sample)
-            X_sample = X[ix]	# random sampling
+            X_sample = self.X[ix]	# random sampling
             self.Trees.append(iTree(X_sample, 0, self.limit)) # yahan tak ensemble ban gya
 
     def compute_paths(self, X_in = None):	
@@ -65,6 +67,7 @@ class iTree(object):
         self.X = X #save data for now
         self.size = len(X) #  number of objects
         self.Q = np.arange(np.shape(X)[1], dtype='int') # number of dimensions
+        print(type(Q))
         self.l = l # depth limit
         self.p = None
         self.q = None
@@ -125,4 +128,47 @@ class PathFactor(object):
                 return self.find_path(T.right)
 
 
+data = pd.read_csv('creditcard.csv')
+print(type(data))
 
+#print(data.head())
+from sklearn.preprocessing import StandardScaler
+
+np_array = np.array(data.Amount)
+np_array_reshaped = np_array.reshape(-1, 1)
+data['normAmount'] = StandardScaler().fit_transform(np_array_reshaped)
+
+#dropping time and amount as they do not seem significant 
+data = data.drop(['Time','Amount'],axis=1)
+
+data_zero = data[data.Class == 0]
+print(len(data_zero.index))
+
+data_one = data[data.Class == 1]
+print(len(data_one.index))
+
+data_zero = data_zero.iloc[:10000]
+print(len(data_zero.index))
+data_zero = data_zero.append(data_one) # equal sampling
+X = data_zero.ix[:, data_zero.columns != "Class"]
+y = data_zero.ix[:, data_zero.columns == "Class"]
+
+data_zero = data[data.Class == 0]
+data_one = data[data.Class == 1]
+data_zero = data_zero.iloc[:10000]
+
+iso_x_train = data_zero.ix[:, data_zero.columns != 'Class']
+#print(iso_x_train.head())
+
+
+iso_x_outliers = data_one.ix[:, data_one.columns != 'Class']
+
+classifier = iForest(X = iso_x_train, ntrees = 100, sample_size = 128)
+
+y_pred_train = classifier.compute_paths(iso_x_train)
+y_pred_test = classifier.compute_paths(iso_x_test)
+
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3, random_state = 0)
+
+    
