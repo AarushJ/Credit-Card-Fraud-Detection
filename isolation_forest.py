@@ -1,5 +1,5 @@
 "isolated forest functions"
-
+from __future__ import division
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -27,6 +27,9 @@ class iForest(object):
             X_sample = self.X[ix]	# random sampling
             self.Trees.append(iTree(X_sample, 0, self.limit)) # yahan tak ensemble ban gya
 
+    '''
+     Decision function that computes anomaly score for each entry
+    '''        
     def compute_paths(self, X_in = None):	
         if X_in is None:
             X_in = self.X
@@ -58,16 +61,18 @@ class Node(object):
         self.right = right
         self.ntype = node_type
 
+
 class iTree(object):
     """
     Unique entries for X
     """
     def __init__(self,X,e,l):
+        global cnt
         self.e = e # depth
         self.X = X #save data for now
         self.size = len(X) #  number of objects
         self.Q = np.arange(np.shape(X)[1], dtype='int') # number of dimensions
-        print(type(Q))
+        #print(self.Q)
         self.l = l # depth limit
         self.p = None
         self.q = None
@@ -153,22 +158,76 @@ data_zero = data_zero.append(data_one) # equal sampling
 X = data_zero.ix[:, data_zero.columns != "Class"]
 y = data_zero.ix[:, data_zero.columns == "Class"]
 
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3, random_state = 0)
+
+X_test_numpy_array = X_test.values
+
 data_zero = data[data.Class == 0]
 data_one = data[data.Class == 1]
 data_zero = data_zero.iloc[:10000]
 
 iso_x_train = data_zero.ix[:, data_zero.columns != 'Class']
+iso_x_train_numpy_array = iso_x_train.values
+print(iso_x_train_numpy_array.shape)
 #print(iso_x_train.head())
-
 
 iso_x_outliers = data_one.ix[:, data_one.columns != 'Class']
 
-classifier = iForest(X = iso_x_train, ntrees = 100, sample_size = 128)
-
-y_pred_train = classifier.compute_paths(iso_x_train)
-y_pred_test = classifier.compute_paths(iso_x_test)
+classifier = iForest(X = iso_x_train_numpy_array, ntrees = 100, sample_size = 128)
 
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size = 0.3, random_state = 0)
+#threshold = np.percentile(classifier.compute_paths(X_test_numpy_array),
+#                                             1)
 
-    
+y_pred_train = classifier.compute_paths(iso_x_train_numpy_array)    # decision function
+y_pred_train_list = y_pred_train.tolist()
+
+y_pred_test = classifier.compute_paths(X_test_numpy_array)
+y_pred_test_list = y_pred_test.tolist()
+
+print("100th last in training set: ")
+print(y_pred_train_list[9899])
+print(y_pred_train_list[9900])
+print(y_pred_train_list[9901])
+
+threshold = y_pred_train_list[-100]
+
+print("100th last in testing set: ")
+print(y_pred_test_list[-100])
+
+yt = np.array(y_test).reshape(-1,)
+yt_pred = [1 if i >= threshold else 0 for i in y_pred_test]
+
+cnf_matrix = confusion_matrix(yt, yt_pred)
+
+print(type(cnf_matrix))
+
+np.set_printoptions(precision=2)
+
+
+print(" cnf[0, 0]: ")
+print(cnf_matrix[0, 0])
+
+print(" cnf[0, 1]: ")
+print(cnf_matrix[0, 1])
+
+print(" cnf[1, 0]: ")
+print(cnf_matrix[1, 0])
+
+print(" cnf[1, 1]: ")
+print(cnf_matrix[1, 1])
+
+print("Recall metric in the testing dataset: ", cnf_matrix[1,1]/(cnf_matrix[1,0]+cnf_matrix[1,1]))
+
+
+
+
+
+
+
+
+
+
+
+
+
